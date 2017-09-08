@@ -1,22 +1,30 @@
 import React, { Component } from 'react'
 import { Link } from 'react-router'
-import { Table } from 'react-bootstrap'
+import { Table, Col, Row } from 'react-bootstrap'
 import { socketConnect } from 'socket.io-react'
+import GoogleMapsLoader from 'google-maps'
 
 class Home extends Component {
     constructor(props) {
         super(props)
         this.state = {
-            user: {username: 'empty', nfc_id: 'empty'},
+            user: { username: 'empty', nfc_id: 'empty' },
             lora_gps: 'empty',
-            lora_location: 'empty'
+            lora_location: 'empty',
+            marker: null,
+            map: null
         }
     }
 
     componentDidMount() {
         const { socket } = this.props
         socket.on('lora_gps', value => {
-            this.setState({ lora_gps: value })
+            this.setState({ lora_gps: value.split(',') })
+            const location = { lat: parseFloat(this.state.lora_gps[0]), lng: parseFloat(this.state.lora_gps[1]) }
+            if (this.state.marker) {
+                this.state.marker.setPosition(location)
+                this.state.map.setCenter(location)
+            }
         })
 
         socket.on('lora_location', value => {
@@ -25,6 +33,21 @@ class Home extends Component {
 
         socket.on('rfid', value => {
             this.setState({ user: value })
+        })
+
+        GoogleMapsLoader.load(google => {
+            let location = { lat: 10.776651, lng: 106.683750 }
+            let map = new google.maps.Map(document.getElementById('map-nearby'), {
+                zoom: 15,
+                center: location,
+                mapTypeId: 'terrain'
+            })
+            this.setState({ map: map })
+            let marker = new google.maps.Marker({
+                position: location,
+                map: map
+            })
+            this.setState({ marker: marker })
         })
     }
 
@@ -52,31 +75,38 @@ class Home extends Component {
                         <thead>
                             <tr>
                                 <th>Username</th>
-                                <th>ID</th>
+                                <th>Balance</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td>{this.state.user.username}</td>
-                                <td>{this.state.user.nfc_id}</td>
+                                <td className="value">{this.state.user.username}</td>
+                                <td className="value">{this.state.user.nfc_id}</td>
                             </tr>
                         </tbody>
                     </Table>
-                    <h3>LORA</h3>
-                    <Table striped bordered condensed hover>
-                        <thead>
-                            <tr>
-                                <th>LORA 1 (Location)</th>
-                                <th>LORA 2 (GPS)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>{this.state.lora_location}</td>
-                                <td>{this.state.lora_gps}</td>
-                            </tr>
-                        </tbody>
-                    </Table>
+                    <br />
+                    <Row>
+                        <Col md={6}>
+                            <h3>LORA Location</h3>
+                            <Table striped bordered condensed hover>
+                                <thead>
+                                    <tr>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td className="value">{this.state.lora_location}</td>
+                                    </tr>
+                                </tbody>
+                            </Table>
+                        </Col>
+                        <Col md={6}>
+                            <h3>LORA GPS: {this.state.lora_gps}</h3>
+                            <div id="map-nearby"></div>
+                        </Col>
+                    </Row>
                 </div>
             </div>
         )
